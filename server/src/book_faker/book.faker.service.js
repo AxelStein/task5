@@ -7,12 +7,13 @@ export const config = {
             locale: 'en_US',
             name: 'English (US)',
             definition: en,
-            default: true,
+
         },
         {
             locale: 'ru_RU',
             name: 'Русский (Россия)',
-            definition: ru
+            definition: ru,
+            default: true,
         },
         {
             locale: 'fr_FR',
@@ -23,10 +24,16 @@ export const config = {
     likes: {
         min: 0,
         max: 10,
+        step: 0.1
     },
     reviews: {
         min: 0,
-        max: 10
+        max: 10,
+        step: 0.1
+    },
+    seed: {
+        min: 1,
+        step: 1
     }
 };
 

@@ -1,23 +1,49 @@
 import Table from 'react-bootstrap/Table';
 import apiClient from './api/api.client.js';
-import { Fragment, useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
+import InputGroup from 'react-bootstrap/InputGroup';
+import Button from 'react-bootstrap/InputGroup';
 import Form from 'react-bootstrap/Form';
-import { BsChevronUp, BsChevronDown, BsFillHandThumbsUpFill } from "react-icons/bs";
+import { BsChevronUp, BsChevronDown, BsFillHandThumbsUpFill, BsShuffle } from "react-icons/bs";
 import axios from 'axios';
 import InfiniteScroll from 'react-infinite-scroll-component';
 import moment from 'moment';
 
 function DashboardPage() {
-    const [locale, setLocale] = useState('ru_RU');
-    const [seed, setSeed] = useState(4);
-    const [likes, setLikes] = useState(0);
-    const [reviews, setReviews] = useState(0);
+    const [locale, setLocale] = useState();
+    const [seed, setSeed] = useState();
+    const [likes, setLikes] = useState();
+    const [reviews, setReviews] = useState();
     const [books, setBooks] = useState([]);
     const [isInitFetch, setInitFetch] = useState(false);
     const [expandedRow, setExpandedRow] = useState(-1);
     const [page, setPage] = useState(1);
+    const configRef = useRef(null);
 
-    const fetchBooks = useCallback((signal) => {
+    const fetchConfig = useCallback(() => {
+        apiClient.get('/books/config')
+            .then(res => {
+                const config = res.data;
+                configRef.current = config;
+                
+                let l = config.supportedLocales.find(l => l.default === true);
+                if (!l) {
+                    l = config.supportedLocales[0];
+                }
+
+                setLocale(l.locale);
+                setSeed(config.seed.min);
+                setLikes(config.likes.min);
+                setReviews(config.reviews.min);
+            });
+            // .catch(err => reject(err));
+    }, []);
+
+    const fetchBooks = useCallback(async (signal) => {
+        if (!configRef.current) {
+            fetchConfig();
+        }
+
         setInitFetch(page === 1);
         apiClient.get(
             '/books/list',
@@ -34,7 +60,7 @@ function DashboardPage() {
                 setInitFetch(false);
             }
         });
-    }, [likes, locale, seed, reviews, page]);
+    }, [likes, locale, seed, reviews, page, fetchConfig]);
 
     useEffect(() => {
         const controller = new AbortController();
@@ -153,44 +179,61 @@ function DashboardPage() {
     };
 
     const localeDropDown = () => {
+        const config = configRef.current;
+        if (!config) {
+            return null;
+        }
         return (
             <>
                 <Form.Text muted>Locale</Form.Text>
                 <Form.Select value={locale} onChange={onLocalChange}>
-                    <option value="en_US">English (US)</option>
-                    <option value="ru_RU">Russian (RU)</option>
-                    <option value="fr_FR">French (FR)</option>
+                    {config.supportedLocales.map(v => (
+                        <option value={v.locale}>{v.name}</option>
+                    ))}
                 </Form.Select>
             </>
         );
     };
 
     const seedInput = () => {
+        const config = configRef.current;
+        if (!config) {
+            return null;
+        }
         return (
             <>
                 <Form.Text muted>Seed</Form.Text>
-                <Form.Control
-                    type="number"
-                    id="seedInput"
-                    min={0}
-                    onChange={onSeedChange}
-                    step="1"
-                    value={seed}
-                />
+                <div className='row'>
+                    <Form.Control
+                        type="number"
+                        id="seedInput"
+                        min={config.seed.min}
+                        onChange={onSeedChange}
+                        step={config.seed.step}
+                        value={seed}
+                    />
+                    <Button variant="outline-secondary">
+                        <BsShuffle />
+                    </Button>
+                </div>
             </>
         );
     };
 
     const likesRange = () => {
+        const config = configRef.current;
+        if (!config) {
+            return null;
+        }
         return (
             <>
                 <Form.Text muted>Likes</Form.Text>
                 <Form.Control
                     type="number"
                     id="likesInput"
-                    step="0.1"
-                    min={0}
-                    max={10}
+                    step={config.likes.step}
+                    min={config.likes.min}
+                    max={config.likes.max}
                     onChange={onLikesChange}
                     value={likes}
                 />
@@ -199,15 +242,19 @@ function DashboardPage() {
     };
 
     const reviewsInput = () => {
+        const config = configRef.current;
+        if (!config) {
+            return null;
+        }
         return (
             <>
                 <Form.Text muted>Reviews</Form.Text>
                 <Form.Control
                     type="number"
                     id="reviewsInput"
-                    step="0.1"
-                    min={0}
-                    max={10}
+                    step={config.reviews.step}
+                    min={config.reviews.min}
+                    max={config.reviews.max}
                     onChange={onReviewsChange}
                     value={reviews}
                 />
