@@ -7,10 +7,8 @@ import { BsChevronUp, BsChevronDown, BsFillHandThumbsUpFill, BsShuffle } from "r
 import axios from 'axios';
 import InfiniteScroll from 'react-infinite-scroll-component';
 import moment from 'moment';
-import { ToastContainer } from 'react-toastify';
-import { toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
 import handleApiError from '../api/error.handler.js';
+import Alert from 'react-bootstrap/Alert';
 
 function DashboardPage() {
     const [data, setData] = useState();
@@ -18,14 +16,16 @@ function DashboardPage() {
     const [isInitFetch, setInitFetch] = useState(false);
     const [expandedRow, setExpandedRow] = useState(-1);
     const [page, setPage] = useState(1);
+    const [fetchErr, setFetchErr] = useState();
     const configRef = useRef(null);
 
-    const showErrorToast = (err) => {
-        console.error(handleApiError(err).message);
-        toast.error(handleApiError(err).message);
+    const handleError = (err) => {
+        setFetchErr(handleApiError(err).message);
     }
 
     const fetchConfig = useCallback(() => {
+        setFetchErr(undefined);
+
         apiClient.get('/books/config')
             .then(res => {
                 const config = res.data;
@@ -43,7 +43,7 @@ function DashboardPage() {
                     reviews: config.reviews.min
                 });
             })
-            .catch(err => showErrorToast(err));
+            .catch(err => handleError(err));
     }, []);
 
     const fetchBooks = useCallback(async (signal) => {
@@ -56,6 +56,8 @@ function DashboardPage() {
         }
 
         setInitFetch(page === 1);
+        setFetchErr(undefined);
+
         apiClient.get(
             '/books/list',
             {
@@ -66,7 +68,7 @@ function DashboardPage() {
             setInitFetch(false);
             setBooks(prev => [...prev, ...res.data]);
         }).catch(err => {
-            showErrorToast(err);
+            handleError(err);
             if (!axios.isCancel(err)) {
                 setInitFetch(false);
             }
@@ -290,21 +292,40 @@ function DashboardPage() {
         return (<div className='spinner' />);
     }
 
-    const toastContainer = () => {
-        return (
-            <ToastContainer
-                position="top-center"
-                autoClose={2000}
-                hideProgressBar={true}
-                newestOnTop={true}
-                closeOnClick
-                rtl={false}
-                pauseOnFocusLoss
-                draggable
-                pauseOnHover
-                theme="light"
-            />
-        );
+    const errorContainer = (err) => {
+        return (<Alert variant='danger' className='m-4'>{err}</Alert>);
+    }
+
+    const renderContent = () => {
+        if (fetchErr) {
+            return errorContainer(fetchErr);
+        } else {
+            return (
+                <div id="scrollContainer" className='flex-grow' style={{ height: 'calc(100vh - 72px)', overflow: 'auto' }}>
+                    <InfiniteScroll
+                        hasMore={true}
+                        dataLength={books.length}
+                        loader={loader()}
+                        next={fetchNextPage}
+                        scrollableTarget="scrollContainer"
+                    >
+                        <Table responsive>
+                            <thead>
+                                <tr>
+                                    <th></th>
+                                    <th>#</th>
+                                    <th>ISBN</th>
+                                    <th>Title</th>
+                                    <th>Author</th>
+                                    <th>Publisher</th>
+                                </tr>
+                            </thead>
+                            {renderTableBody(books)}
+                        </Table>
+                    </InfiniteScroll>
+                </div>
+            );
+        }
     }
 
     return (
@@ -319,31 +340,7 @@ function DashboardPage() {
                 <div className='ms-2 col'>{reviewsInput()}</div>
             </div>
 
-            <div id="scrollContainer" className='flex-grow' style={{ height: 'calc(100vh - 72px)', overflow: 'auto' }}>
-                <InfiniteScroll
-                    hasMore={true}
-                    dataLength={books.length}
-                    loader={loader()}
-                    next={fetchNextPage}
-                    scrollableTarget="scrollContainer"
-                >
-                    <Table responsive>
-                        <thead>
-                            <tr>
-                                <th></th>
-                                <th>#</th>
-                                <th>ISBN</th>
-                                <th>Title</th>
-                                <th>Author</th>
-                                <th>Publisher</th>
-                            </tr>
-                        </thead>
-                        {renderTableBody(books)}
-                    </Table>
-                </InfiniteScroll>
-            </div>
-
-            {toastContainer()}
+            {renderContent()}
         </div>
     );
 }
