@@ -1,16 +1,14 @@
-class BookReviewDefinition {
+import BookNumDefinition from "./BookNumDefinition.js";
+
+class BookReviewDefinition extends BookNumDefinition {
 
     constructor(faker, items) {
-        this.faker = faker.numFaker;
+        super(faker);
         this.items = items;
     }
 
-    /**
-     * @param {Number} count 
-     * @returns 
-     */
-    reviews(count) {
-        return this.faker.helpers.arrayElements(this.items, count)
+    reviews(probability) {
+        return this.faker.helpers.arrayElements(this.items, this.nextNumFromProbability(probability))
             .map(comment => {
                 return {
                     author: this.faker.person.fullName(),

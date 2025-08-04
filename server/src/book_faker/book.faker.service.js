@@ -1,5 +1,5 @@
 import { en, ru, fr, generateMersenne53Randomizer } from '@faker-js/faker';
-import { prepareFakers } from './config/index.js';
+import { prepareFakers } from './config/config.js';
 
 export const config = {
     supportedLocales: [
@@ -7,13 +7,12 @@ export const config = {
             locale: 'en_US',
             name: 'English (US)',
             definition: en,
-
+            default: true,
         },
         {
             locale: 'ru_RU',
             name: 'Русский (Россия)',
             definition: ru,
-            default: true,
         },
         {
             locale: 'fr_FR',
@@ -33,13 +32,14 @@ export const config = {
     },
     seed: {
         min: 1,
+        max: 10000000,
         step: 1
     }
 };
 
 const fakers = await prepareFakers(config.supportedLocales);
 
-const createBook = (faker, likeCount, reviewCount) => {
+const createBook = (faker, likes, reviews) => {
     return {
         author: faker.book.author(),
         title: faker.book.title(),
@@ -47,29 +47,22 @@ const createBook = (faker, likeCount, reviewCount) => {
         publisher: faker.book.publisher(),
         format: faker.book.format(),
         date: faker.date.past({ years: 100 }),
-        likes: likeCount,
-        reviews: faker.bookReview.reviews(reviewCount),
+        likes: faker.bookLike.likes(likes),
+        reviews: faker.bookReview.reviews(reviews),
         cover: faker.bookCover.cover(),
         isbn: faker.commerce.isbn()
     };
 }
 
-export const generateFakeBooks = (locale, seed, page, likes, reviews) => {
-    seed += page;
-
+export const generateFakeBooks = ({locale, seed, page, likes, reviews}) => {
     const books = [];
     const faker = fakers[locale];
-    faker.seed(seed);
-    faker.numFaker.seed(seed);
-
-    const getNextInt = (probability) => {
-        return Math.floor(probability) + (faker.numFaker.number.float() < probability % 1 ? 1 : 0);
-    }
+    faker.setSeed(seed + page);
 
     const count = page === 1 ? 20 : 10;
 
     for (let i = 0; i < count; i++) {
-        const book = createBook(faker, getNextInt(likes), getNextInt(reviews));
+        const book = createBook(faker, likes, reviews);
         book.index = (page - 1) * count + i + (page === 1 ? 0 : 10);
         books.push(book);
     }

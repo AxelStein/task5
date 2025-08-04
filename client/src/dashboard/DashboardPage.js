@@ -1,42 +1,49 @@
 import Table from 'react-bootstrap/Table';
-import apiClient from './api/api.client.js';
+import apiClient from '../api/api.client.js';
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
-import InputGroup from 'react-bootstrap/InputGroup';
 import Button from 'react-bootstrap/InputGroup';
 import Form from 'react-bootstrap/Form';
 import { BsChevronUp, BsChevronDown, BsFillHandThumbsUpFill, BsShuffle } from "react-icons/bs";
 import axios from 'axios';
 import InfiniteScroll from 'react-infinite-scroll-component';
 import moment from 'moment';
+import { ToastContainer } from 'react-toastify';
+import { toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import handleApiError from '../api/error.handler.js';
 
 function DashboardPage() {
-    const [locale, setLocale] = useState();
-    const [seed, setSeed] = useState();
-    const [likes, setLikes] = useState();
-    const [reviews, setReviews] = useState();
+    const [data, setData] = useState();
     const [books, setBooks] = useState([]);
     const [isInitFetch, setInitFetch] = useState(false);
     const [expandedRow, setExpandedRow] = useState(-1);
     const [page, setPage] = useState(1);
     const configRef = useRef(null);
 
+    const showErrorToast = (err) => {
+        console.error(handleApiError(err).message);
+        toast.error(handleApiError(err).message);
+    }
+
     const fetchConfig = useCallback(() => {
         apiClient.get('/books/config')
             .then(res => {
                 const config = res.data;
                 configRef.current = config;
-                
+
                 let l = config.supportedLocales.find(l => l.default === true);
                 if (!l) {
                     l = config.supportedLocales[0];
                 }
 
-                setLocale(l.locale);
-                setSeed(config.seed.min);
-                setLikes(config.likes.min);
-                setReviews(config.reviews.min);
-            });
-            // .catch(err => reject(err));
+                setData({
+                    locale: l.locale,
+                    seed: config.seed.min,
+                    likes: config.likes.min,
+                    reviews: config.reviews.min
+                });
+            })
+            .catch(err => showErrorToast(err));
     }, []);
 
     const fetchBooks = useCallback(async (signal) => {
@@ -44,23 +51,27 @@ function DashboardPage() {
             fetchConfig();
         }
 
+        if (!data) {
+            return;
+        }
+
         setInitFetch(page === 1);
         apiClient.get(
             '/books/list',
             {
-                params: { locale, seed, likes, reviews, page },
+                params: { ...data, page },
                 signal
             }
         ).then(res => {
             setInitFetch(false);
             setBooks(prev => [...prev, ...res.data]);
         }).catch(err => {
-            console.log(err);
+            showErrorToast(err);
             if (!axios.isCancel(err)) {
                 setInitFetch(false);
             }
         });
-    }, [likes, locale, seed, reviews, page, fetchConfig]);
+    }, [data, page, fetchConfig]);
 
     useEffect(() => {
         const controller = new AbortController();
@@ -73,6 +84,17 @@ function DashboardPage() {
             setPage(page + 1);
         }
     };
+
+    const getRandomInt = (min, max) => {
+        return Math.floor(Math.random() * (max - min) + min);
+    }
+
+    const randomSeed = () => {
+        const config = configRef.current;
+        if (config) {
+            onSeedChange({ target: { value: getRandomInt(config.seed.min, config.seed.max) } });
+        }
+    }
 
     const onBookClick = (book) => {
         setExpandedRow(expandedRow === book.index ? -1 : book.index);
@@ -92,9 +114,9 @@ function DashboardPage() {
             <div>
                 {noReviews ?
                     (<p className='text-muted'>No reviews yet</p>) :
-                    book.reviews.map(review => {
+                    book.reviews.map((review, index) => {
                         return (
-                            <div className='vstack' key={review.id} style={{ marginBottom: "10px" }}>
+                            <div className='vstack' key={index} style={{ marginBottom: "10px" }}>
                                 <div>{review.comment}</div>
                                 <div className='text-muted fst-italic' style={{ fontSize: "14px" }}>
                                     — {review.author}, <span>{moment(review.date).format('ll')}</span>
@@ -157,25 +179,32 @@ function DashboardPage() {
         setBooks([]);
     };
 
-    const onLocalChange = (event) => {
+    const setDataFieldFromEvent = (fieldName, event) => {
+        const value = event.target.value;
+        if (!value || value.length === 0) {
+            return;
+        }
+        const o = { ...data };
+        o[fieldName] = value;
         resetPage();
-        setLocale(event.target.value);
+        setData(o);
+        return true;
+    }
+
+    const onLocalChange = (event) => {
+        setDataFieldFromEvent('locale', event);
     };
 
     const onSeedChange = (event) => {
-        resetPage();
-        setExpandedRow(-1);
-        setSeed(event.target.value);
+        setDataFieldFromEvent('seed', event);
     };
 
     const onLikesChange = (event) => {
-        resetPage();
-        setLikes(event.target.value);
+        setDataFieldFromEvent('likes', event);
     };
 
     const onReviewsChange = (event) => {
-        resetPage();
-        setReviews(event.target.value);
+        setDataFieldFromEvent('reviews', event);
     };
 
     const localeDropDown = () => {
@@ -186,9 +215,9 @@ function DashboardPage() {
         return (
             <>
                 <Form.Text muted>Locale</Form.Text>
-                <Form.Select value={locale} onChange={onLocalChange}>
+                <Form.Select value={data.locale} onChange={onLocalChange}>
                     {config.supportedLocales.map(v => (
-                        <option value={v.locale}>{v.name}</option>
+                        <option key={v.locale} value={v.locale}>{v.name}</option>
                     ))}
                 </Form.Select>
             </>
@@ -203,19 +232,14 @@ function DashboardPage() {
         return (
             <>
                 <Form.Text muted>Seed</Form.Text>
-                <div className='row'>
-                    <Form.Control
-                        type="number"
-                        id="seedInput"
-                        min={config.seed.min}
-                        onChange={onSeedChange}
-                        step={config.seed.step}
-                        value={seed}
-                    />
-                    <Button variant="outline-secondary">
-                        <BsShuffle />
-                    </Button>
-                </div>
+                <Form.Control
+                    type="number"
+                    id="seedInput"
+                    min={config.seed.min}
+                    onChange={onSeedChange}
+                    step={config.seed.step}
+                    value={data.seed}
+                />
             </>
         );
     };
@@ -235,7 +259,7 @@ function DashboardPage() {
                     min={config.likes.min}
                     max={config.likes.max}
                     onChange={onLikesChange}
-                    value={likes}
+                    value={data.likes}
                 />
             </>
         );
@@ -256,7 +280,7 @@ function DashboardPage() {
                     min={config.reviews.min}
                     max={config.reviews.max}
                     onChange={onReviewsChange}
-                    value={reviews}
+                    value={data.reviews}
                 />
             </>
         );
@@ -266,11 +290,31 @@ function DashboardPage() {
         return (<div className='spinner' />);
     }
 
+    const toastContainer = () => {
+        return (
+            <ToastContainer
+                position="top-center"
+                autoClose={2000}
+                hideProgressBar={true}
+                newestOnTop={true}
+                closeOnClick
+                rtl={false}
+                pauseOnFocusLoss
+                draggable
+                pauseOnHover
+                theme="light"
+            />
+        );
+    }
+
     return (
         <div className="flex flex-col">
             <div className='sticky-top bg-white shadow-sm row d-flex row' style={{ padding: "0px 15px", height: "72px" }}>
                 <div className='col'>{localeDropDown()}</div>
                 <div className='ms-2 col'>{seedInput()}</div>
+                <Button variant="outline-secondary" onClick={randomSeed} disabled={!configRef.current} className='btn-random-seed'>
+                    <BsShuffle className='align-self-center' />
+                </Button>
                 <div className='ms-2 col'>{likesRange()}</div>
                 <div className='ms-2 col'>{reviewsInput()}</div>
             </div>
@@ -298,6 +342,8 @@ function DashboardPage() {
                     </Table>
                 </InfiniteScroll>
             </div>
+
+            {toastContainer()}
         </div>
     );
 }

@@ -1,6 +1,7 @@
 import { Faker, en, base } from '@faker-js/faker';
-import BookCoverDefinition from '../covers/BookCoverDefinition.js';
-import BookReviewDefinition from '../reviews/BookReviewDefinition.js';
+import BookCoverDefinition from './BookCoverDefinition.js';
+import BookReviewDefinition from './BookReviewDefinition.js';
+import BookLikesDefinition from './BookLikesDefinition.js';
 import csv from 'csv-parser';
 import fs from 'fs';
 import path from "path";
@@ -10,7 +11,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const readDataFile = (file) => new Promise((resolve, reject) => {
     const d = [];
-    const rs = fs.createReadStream(path.join(__dirname, file));
+    const rs = fs.createReadStream(path.join(__dirname, '..', 'data/', file));
 
     rs.pipe(csv())
         .on('data', (data) => d.push(data))
@@ -26,6 +27,7 @@ export const prepareFakers = async (supportedLocales) => {
     const publishers = await readDataFile('publisher.csv');
     const reviews = await readDataFile('review.csv');
     const titles = await readDataFile('title.csv');
+    const covers = await readDataFile("cover.csv");
 
     const fakers = {};
     supportedLocales.map((l) => {
@@ -40,10 +42,16 @@ export const prepareFakers = async (supportedLocales) => {
         l.definition.book = book;
 
         const createFaker = () => new Faker({ locale: [l.definition, en, base] });
+
         const faker = createFaker();
-        faker.numFaker = createFaker();
-        faker.bookCover = new BookCoverDefinition(faker);
-        faker.bookReview = new BookReviewDefinition(faker, reviews.map(v => v[l.locale]));
+        const numFaker = createFaker();
+        faker.setSeed = (seed) => {
+            faker.seed(seed);
+            numFaker.seed(seed);
+        }
+        faker.bookCover = new BookCoverDefinition(faker, covers.map(v => v.en_US));
+        faker.bookLike = new BookLikesDefinition(numFaker);
+        faker.bookReview = new BookReviewDefinition(numFaker, reviews.map(v => v[l.locale]));
         fakers[l.locale] = faker;
     });
     return fakers;
