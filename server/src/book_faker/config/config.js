@@ -45,13 +45,15 @@ export const prepareFakers = async (supportedLocales) => {
 
         const faker = createFaker();
         const numFaker = createFaker();
+        const commentAuthorFaker = createFaker();
         faker.setSeed = (seed) => {
             faker.seed(seed);
             numFaker.seed(seed);
+            commentAuthorFaker.seed(seed);
         }
         faker.bookCover = new BookCoverDefinition(faker, covers.map(v => v.en_US));
         faker.bookLike = new BookLikesDefinition(numFaker);
-        faker.bookReview = new BookReviewDefinition(numFaker, reviews.map(v => v[l.locale]));
+        faker.bookReview = new BookReviewDefinition(numFaker, commentAuthorFaker, reviews.map(v => v[l.locale]));
         fakers[l.locale] = faker;
     });
     return fakers;

@@ -46,11 +46,11 @@ const createBook = (faker, likes, reviews) => {
         genre: faker.book.genre(),
         publisher: faker.book.publisher(),
         format: faker.book.format(),
-        date: faker.date.past({ years: 100 }),
-        likes: faker.bookLike.likes(likes),
-        reviews: faker.bookReview.reviews(reviews),
+        date: faker.date.past({ years: 50 }),
         cover: faker.bookCover.cover(),
-        isbn: faker.commerce.isbn()
+        isbn: faker.commerce.isbn(),
+        reviews: faker.bookReview.reviews(reviews),
+        likes: faker.bookLike.likes(likes),
     };
 }
 
