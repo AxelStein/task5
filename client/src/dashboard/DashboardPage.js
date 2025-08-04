@@ -51,7 +51,11 @@ function DashboardPage() {
             fetchConfig();
         }
 
-        if (!data) {
+        const hasInvalidData = () => {
+            return Object.values(data).some(v => v === undefined || v === null || v === '');
+        }
+
+        if (!data || hasInvalidData()) {
             return;
         }
 
@@ -183,12 +187,11 @@ function DashboardPage() {
 
     const setDataFieldFromEvent = (fieldName, event) => {
         const value = event.target.value;
-        if (!value || value.length === 0) {
-            return;
+        if (value !== '') {
+            resetPage();
         }
         const o = { ...data };
         o[fieldName] = value;
-        resetPage();
         setData(o);
         return true;
     }
